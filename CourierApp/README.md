@@ -91,7 +91,9 @@ El agente habla en español y recibe contexto del courier y del viaje aceptado. 
 | `resume_simulation` | Ninguno | Reanuda el procesamiento. |
 | `set_playback_speed` | `speed`: número | Cambia la velocidad a `1`, `5` o `20`. |
 
-La aplicación solicita permiso de micrófono al iniciar una conversación y comienza con el micrófono activo. Usa el control del micrófono en pantalla para silenciarlo o volverlo a activar. Si durante 15 segundos no se detecta voz y el agente tampoco está hablando o pensando, la sesión termina automáticamente; el siguiente pedido inicia una conversación nueva.
+La aplicación solicita permiso de micrófono al iniciar una conversación y comienza con el micrófono activo. Usa el control del micrófono en pantalla para silenciarlo o volverlo a activar. Cada pedido nuevo aceptado cierra cualquier sesión anterior y fuerza una conversación nueva con el contexto exclusivo de ese pedido. Si no se detecta voz y el agente tampoco está hablando o pensando durante el tiempo configurado en `VoiceAgentManager.inactivityTimeout`, la sesión termina automáticamente.
+
+El contexto de cada sesión le indica al agente que responda siempre en español. Para fijar también el idioma de reconocimiento y síntesis desde ElevenLabs, selecciona español como idioma predeterminado del agente en el dashboard. El SDK ofrece `AgentOverrides(language: .spanish)`, pero solo debe usarse después de habilitar el override **Language** en **Security**, ya que de otro modo ElevenLabs puede rechazar la conexión.
 
 ## Arquitectura
 

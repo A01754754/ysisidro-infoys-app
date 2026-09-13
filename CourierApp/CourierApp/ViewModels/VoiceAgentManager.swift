@@ -18,7 +18,9 @@ final class VoiceAgentManager: ObservableObject {
     private var inactivityTask: Task<Void, Never>?
     private var cancellables: Set<AnyCancellable> = []
     private weak var courierViewModel: CourierViewModel?
-    private var pendingAnnouncement: AcceptedTripAnnouncement?
+    private var queuedAnnouncements: [AcceptedTripAnnouncement] = []
+    private var processingAnnouncementId: String?
+    private var isProcessingAnnouncementQueue = false
     private var announcedTripIds: Set<String> = []
 
     private static let acceptedTripMessage =
@@ -27,7 +29,7 @@ final class VoiceAgentManager: ObservableObject {
     private static let inactivityTimeout: Duration = .seconds(5)
 
     private static let courierAgentPrompt = """
-    Actúa como un agente inteligente que acompaña a un courier. Habla en español claro y breve. Tu objetivo es ayudarle a tomar buenas decisiones para maximizar su ganancia sin inventar datos. Usa el contexto del simulador para explicar por qué se aceptó un pedido, qué paradas siguen y qué cambió en la ruta. Si el contexto indica que una descripción fue generada localmente porque DEV2 aún no la envía, dilo con honestidad cuando sea relevante.
+    Actúa como un agente inteligente que acompaña a un courier. Habla y responde siempre en español claro y breve. Tu objetivo es ayudarle a tomar buenas decisiones para maximizar su ganancia sin inventar datos. Usa el contexto del simulador para explicar por qué se aceptó un pedido, qué paradas siguen y qué cambió en la ruta. Si el contexto indica que una descripción fue generada localmente porque DEV2 aún no la envía, dilo con honestidad cuando sea relevante.
     """
 
     func toggleConversation(
@@ -46,19 +48,44 @@ final class VoiceAgentManager: ObservableObject {
         _ announcement: AcceptedTripAnnouncement,
         courierViewModel: CourierViewModel
     ) async {
-        guard !announcedTripIds.contains(announcement.id) else { return }
+        guard !announcedTripIds.contains(announcement.id),
+              processingAnnouncementId != announcement.id,
+              !queuedAnnouncements.contains(where: {
+                  $0.id == announcement.id
+              }) else {
+            return
+        }
 
         self.courierViewModel = courierViewModel
-        pendingAnnouncement = announcement
+        queuedAnnouncements.append(announcement)
+        await processAnnouncementQueue(
+            courierViewModel: courierViewModel
+        )
+    }
 
-        if isConnected, let conversation {
-            await deliver(announcement, through: conversation)
-        } else if !isConnecting {
+    private func processAnnouncementQueue(
+        courierViewModel: CourierViewModel
+    ) async {
+        guard !isProcessingAnnouncementQueue else { return }
+
+        isProcessingAnnouncementQueue = true
+
+        while !queuedAnnouncements.isEmpty {
+            let announcement = queuedAnnouncements.removeFirst()
+            processingAnnouncementId = announcement.id
+
+            if isConnected || isConnecting {
+                await endConversation()
+            }
+
             await startConversation(
                 courierViewModel: courierViewModel,
                 announcement: announcement
             )
         }
+
+        processingAnnouncementId = nil
+        isProcessingAnnouncementQueue = false
     }
 
     func startConversation(
@@ -81,8 +108,6 @@ final class VoiceAgentManager: ObservableObject {
         errorMessage = nil
         isConnecting = true
         statusText = "Conectando con ElevenLabs…"
-
-        let startupAnnouncement = announcement ?? pendingAnnouncement
 
         let config = ConversationConfig(
             onError: { [weak self] error in
@@ -146,10 +171,8 @@ final class VoiceAgentManager: ObservableObject {
 
             await sendCourierContext(through: conversation)
 
-            if let startupAnnouncement {
-                await deliver(startupAnnouncement, through: conversation)
-            } else if let pendingAnnouncement {
-                await deliver(pendingAnnouncement, through: conversation)
+            if let announcement {
+                await deliver(announcement, through: conversation)
             }
 
             scheduleInactivityTimeout()
@@ -183,9 +206,6 @@ final class VoiceAgentManager: ObservableObject {
                 "Evento del sistema: se aceptó un viaje automáticamente. Responde diciendo: \(Self.acceptedTripMessage)"
             )
             announcedTripIds.insert(announcement.id)
-            if pendingAnnouncement?.id == announcement.id {
-                pendingAnnouncement = nil
-            }
         } catch {
             errorMessage = "No se pudo anunciar el viaje: \(error.localizedDescription)"
             statusText = "Error al actualizar el contexto"
