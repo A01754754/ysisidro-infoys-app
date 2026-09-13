@@ -2,12 +2,14 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>CFBundleIdentifier</key>
+	<string></string>
 	<key>MBXAccessToken</key>
-	<string>pk.eyJ1IjoibWF4aG1yIiwiYSI6ImNtdHlsejhhbDBobjUyeHBtMWtmNGp4bXkifQ.su1pYTPS5yCnqVeoFMLKyQ</string>
-	<key>DEV2_STATE_URL</key>
-	<string>$(DEV2_STATE_URL)</string>
+	<string>$(MBX_ACCESS_TOKEN)</string>
+	<key>DEV2_BASE_URL</key>
+	<string>$(DEV2_BASE_URL)</string>
 	<key>ELEVENLABS_AGENT_ID</key>
-	<string>agent_0401m2bvdym1f0ds9feb2vd1h6fk</string>
+	<string>$(ELEVENLABS_AGENT_ID)</string>
 	<key>NSAppTransportSecurity</key>
 	<dict>
 		<key>NSAllowsLocalNetworking</key>
