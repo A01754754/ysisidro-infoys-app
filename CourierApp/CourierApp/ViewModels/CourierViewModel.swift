@@ -10,6 +10,16 @@ final class CourierViewModel: ObservableObject {
     @Published private(set) var courierCoordinate:
         CLLocationCoordinate2D?
 
+    @Published private(set) var courierId: String?
+    @Published private(set) var isControlledByAgent = false
+    @Published private(set) var courierStatus: String?
+    @Published private(set) var isReceivingDev2State = false
+
+    @Published private(set) var currentDestinationId: String?
+    @Published private(set) var currentDestinationType: String?
+    @Published private(set) var currentDestinationCoordinate:
+        CLLocationCoordinate2D?
+
     @Published private(set) var isPaused = false
     @Published private(set) var playbackSpeed = 1.0
 
@@ -68,6 +78,8 @@ final class CourierViewModel: ObservableObject {
         CLLocationCoordinate2D?
 
     private let transport: any EventTransport
+    private let courierStateTransport:
+        any CourierStateTransport
     private let dev4GatewayClient: any Dev4GatewayClient
 
     private var activeRunId: String?
@@ -77,11 +89,27 @@ final class CourierViewModel: ObservableObject {
 
     init(
         transport: (any EventTransport)? = nil,
+        courierStateTransport:
+            (any CourierStateTransport)? = nil,
         dev4GatewayClient: (any Dev4GatewayClient)? = nil
     ) {
         self.transport = transport ?? MockTransport()
+        self.courierStateTransport =
+            courierStateTransport
+            ?? Self.makeDefaultCourierStateTransport()
         self.dev4GatewayClient =
             dev4GatewayClient ?? MockDev4GatewayClient()
+    }
+
+    private static func makeDefaultCourierStateTransport()
+        -> any CourierStateTransport {
+        if let endpoint = AppConfiguration.dev2StateURL {
+            return Dev2HTTPCourierStateTransport(
+                endpoint: endpoint
+            )
+        }
+
+        return BundledCourierStateTransport()
     }
 
     var hasRoute: Bool {
@@ -141,15 +169,30 @@ final class CourierViewModel: ObservableObject {
             playbackSpeed: playbackSpeed,
             courierLatitude: courierCoordinate?.latitude,
             courierLongitude: courierCoordinate?.longitude,
+            courierId: courierId,
+            controlledByAgent: isControlledByAgent,
+            courierStatus: courierStatus,
             activeRouteId: activeRouteId,
+            currentDestinationId: currentDestinationId,
+            currentDestinationType: currentDestinationType,
+            currentDestinationLatitude:
+                currentDestinationCoordinate?.latitude,
+            currentDestinationLongitude:
+                currentDestinationCoordinate?.longitude,
             activeOrderId:
                 hasActiveOrder ? activeOrderId : nil,
             pickupName:
-                hasActiveOrder ? pickupName : nil,
+                hasActiveOrder && !isReceivingDev2State
+                ? pickupName
+                : nil,
             dropoffName:
-                hasActiveOrder ? dropoffName : nil,
+                hasActiveOrder && !isReceivingDev2State
+                ? dropoffName
+                : nil,
             orderPayoutMxn:
-                hasActiveOrder ? orderPayout : nil,
+                hasActiveOrder && !isReceivingDev2State
+                ? orderPayout
+                : nil,
             offeredOrderId: offeredOrderId,
             agentDecision: agentDecision,
             agentExplanation: agentExplanation,
@@ -162,6 +205,94 @@ final class CourierViewModel: ObservableObject {
             closedRoadId: closedRoadId,
             arrivalMessage: arrivalMessage
         )
+    }
+
+    func startReceivingCourierState() async {
+        isReceivingDev2State = true
+        hasActiveOrder = false
+        activeRouteId = nil
+        routeCoordinates = []
+        remainingRouteCoordinates = []
+        streamStatusText = "Conectando con DEV2…"
+
+        do {
+            for try await state
+                in courierStateTransport.stateStream() {
+
+                try await waitWhilePaused()
+                try Task.checkCancellation()
+                try await apply(state)
+
+                if courierStateTransport.shouldSimulateDelay {
+                    try await sleepForCurrentSpeed(
+                        baseSeconds: 1
+                    )
+                }
+            }
+        } catch is CancellationError {
+            // La vista fue cerrada.
+        } catch {
+            lastEventText =
+                "Error DEV2: \(error.localizedDescription)"
+            streamStatusText = "DEV2 desconectado"
+        }
+    }
+
+    private func apply(
+        _ state: Dev2CourierState
+    ) async throws {
+        courierId = state.courierId
+        isControlledByAgent = state.controlledByAgent
+        courierStatus = state.courierStatus
+
+        let receivedRoute = state.currentRoute.map(
+            \.coordinate
+        )
+
+        routeCoordinates = receivedRoute
+        remainingRouteCoordinates = receivedRoute
+        routeProgressIndex = 0
+
+        if let destination = state.currentDestination {
+            currentDestinationId = destination.id
+            currentDestinationType = destination.type
+            currentDestinationCoordinate =
+                destination.coordinate
+
+            activeOrderId = destination.id
+            hasActiveOrder = true
+
+            switch destination.type.lowercased() {
+            case "pick", "pickup":
+                pickupLocation = destination.coordinate
+                dropoffLocation = nil
+            case "drop", "dropoff", "delivery":
+                pickupLocation = nil
+                dropoffLocation = destination.coordinate
+            default:
+                pickupLocation = nil
+                dropoffLocation = destination.coordinate
+            }
+        } else {
+            currentDestinationId = nil
+            currentDestinationType = nil
+            currentDestinationCoordinate = nil
+            hasActiveOrder = false
+            pickupLocation = nil
+            dropoffLocation = nil
+        }
+
+        try await moveCourierSmoothly(
+            to: state.position.coordinate
+        )
+
+        await notifyArrivalIfNeeded(
+            at: state.position.coordinate
+        )
+
+        lastEventText =
+            "Estado DEV2: \(state.courierStatus)"
+        streamStatusText = "Conectado con DEV2"
     }
     
     func startSimulation() async {

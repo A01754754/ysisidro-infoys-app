@@ -8,7 +8,15 @@ struct CourierVoiceState: Encodable, Sendable {
 
     let courierLatitude: Double?
     let courierLongitude: Double?
+    let courierId: String?
+    let controlledByAgent: Bool
+    let courierStatus: String?
     let activeRouteId: String?
+
+    let currentDestinationId: String?
+    let currentDestinationType: String?
+    let currentDestinationLatitude: Double?
+    let currentDestinationLongitude: Double?
 
     let activeOrderId: String?
     let pickupName: String?
@@ -36,7 +44,14 @@ struct CourierVoiceState: Encodable, Sendable {
         case playbackSpeed = "playback_speed"
         case courierLatitude = "courier_latitude"
         case courierLongitude = "courier_longitude"
+        case courierId = "courier_id"
+        case controlledByAgent = "controlado_por_agente"
+        case courierStatus = "estado_courier"
         case activeRouteId = "active_route_id"
+        case currentDestinationId = "destino_actual_id"
+        case currentDestinationType = "destino_actual_type"
+        case currentDestinationLatitude = "destino_actual_latitud"
+        case currentDestinationLongitude = "destino_actual_longitud"
         case activeOrderId = "active_order_id"
         case pickupName = "pickup_name"
         case dropoffName = "dropoff_name"

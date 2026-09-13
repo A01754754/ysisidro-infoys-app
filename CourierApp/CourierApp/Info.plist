@@ -4,8 +4,17 @@
 <dict>
 	<key>MBXAccessToken</key>
 	<string>$(MBX_ACCESS_TOKEN)</string>
+	<key>DEV2_STATE_URL</key>
+	<string>$(DEV2_STATE_URL)</string>
 	<key>ELEVENLABS_AGENT_ID</key>
 	<string>$(ELEVENLABS_AGENT_ID)</string>
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<key>NSAllowsLocalNetworking</key>
+		<true/>
+	</dict>
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>La app se conecta al servicio local de DEV2 para recibir el estado del repartidor.</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>Usamos el micrófono para hablar con el asistente de voz del repartidor.</string>
 </dict>

@@ -36,7 +36,7 @@ struct ContentView: View {
             offerOverlay
         }
         .task {
-            await viewModel.startSimulation()
+            await viewModel.startReceivingCourierState()
         }
         .onDisappear {
             Task {
@@ -54,8 +54,19 @@ struct ContentView: View {
                     routeAnnotation
                 }
 
-                pickupAnnotation
-                dropoffAnnotation
+                if !viewModel.isReceivingDev2State {
+                    pickupAnnotation
+                    dropoffAnnotation
+                }
+            }
+
+            if viewModel.isReceivingDev2State,
+               let destination =
+                viewModel.currentDestinationCoordinate {
+
+                currentDestinationAnnotation(
+                    at: destination
+                )
             }
 
             if viewModel.closedRoadCoordinates.count >= 2 {
@@ -89,6 +100,53 @@ struct ContentView: View {
                 pitch: 50
             )
         }
+    }
+
+    private func currentDestinationAnnotation(
+        at coordinate: CLLocationCoordinate2D
+    ) -> some MapContent {
+        MapViewAnnotation(coordinate: coordinate) {
+            VStack(spacing: 3) {
+                Image(systemName: destinationIcon)
+                    .foregroundStyle(.white)
+                    .padding(9)
+                    .background(
+                        destinationColor,
+                        in: Circle()
+                    )
+
+                Text(destinationLabel)
+                    .font(.caption2.bold())
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 3)
+                    .background(
+                        .ultraThinMaterial,
+                        in: Capsule()
+                    )
+            }
+        }
+        .allowOverlap(true)
+    }
+
+    private var isPickupDestination: Bool {
+        let type = viewModel.currentDestinationType?
+            .lowercased()
+
+        return type == "pick" || type == "pickup"
+    }
+
+    private var destinationIcon: String {
+        isPickupDestination
+            ? "shippingbox.fill"
+            : "house.fill"
+    }
+
+    private var destinationColor: Color {
+        isPickupDestination ? .green : .red
+    }
+
+    private var destinationLabel: String {
+        isPickupDestination ? "Pickup" : "Entrega"
     }
 
     // MARK: - Ruta del courier
@@ -215,6 +273,25 @@ struct ContentView: View {
                     in: Capsule()
                 )
 
+            if let courierId = viewModel.courierId,
+               let courierStatus = viewModel.courierStatus {
+
+                Label(
+                    "\(courierId) · \(courierStatus)",
+                    systemImage:
+                        viewModel.isControlledByAgent
+                        ? "cpu.fill"
+                        : "person.fill"
+                )
+                .font(.caption.bold())
+                .padding(.horizontal, 12)
+                .padding(.vertical, 7)
+                .background(
+                    .ultraThinMaterial,
+                    in: Capsule()
+                )
+            }
+
             Label(
                 viewModel.streamStatusText,
                 systemImage:
@@ -271,14 +348,16 @@ struct ContentView: View {
                 )
             }
 
-            SimulationControlsView(
-                isPaused: viewModel.isPaused,
-                speed: viewModel.playbackSpeed,
-                onTogglePause:
-                    viewModel.togglePause,
-                onSelectSpeed:
-                    viewModel.setPlaybackSpeed
-            )
+            if !viewModel.isReceivingDev2State {
+                SimulationControlsView(
+                    isPaused: viewModel.isPaused,
+                    speed: viewModel.playbackSpeed,
+                    onTogglePause:
+                        viewModel.togglePause,
+                    onSelectSpeed:
+                        viewModel.setPlaybackSpeed
+                )
+            }
         }
         .padding(.horizontal, 12)
         .padding(.top, 12)
@@ -368,20 +447,43 @@ struct ContentView: View {
 
     // MARK: - Pedido activo
 
+    @ViewBuilder
     private var bottomOrderCard: some View {
-        ActiveOrderCard(
-            orderId: viewModel.activeOrderId,
-            pickupName: viewModel.pickupName,
-            dropoffName: viewModel.dropoffName,
-            payoutMXN: viewModel.orderPayout
-        )
-        .padding(.horizontal, 16)
-        .padding(.bottom, 24)
-        .frame(
-            maxWidth: .infinity,
-            maxHeight: .infinity,
-            alignment: .bottom
-        )
+        if viewModel.isReceivingDev2State,
+           let destinationId =
+            viewModel.currentDestinationId,
+           let destinationType =
+            viewModel.currentDestinationType,
+           let coordinate =
+            viewModel.currentDestinationCoordinate {
+
+            CurrentDestinationCard(
+                destinationId: destinationId,
+                destinationType: destinationType,
+                coordinate: coordinate
+            )
+            .padding(.horizontal, 16)
+            .padding(.bottom, 24)
+            .frame(
+                maxWidth: .infinity,
+                maxHeight: .infinity,
+                alignment: .bottom
+            )
+        } else {
+            ActiveOrderCard(
+                orderId: viewModel.activeOrderId,
+                pickupName: viewModel.pickupName,
+                dropoffName: viewModel.dropoffName,
+                payoutMXN: viewModel.orderPayout
+            )
+            .padding(.horizontal, 16)
+            .padding(.bottom, 24)
+            .frame(
+                maxWidth: .infinity,
+                maxHeight: .infinity,
+                alignment: .bottom
+            )
+        }
     }
 
     // MARK: - Oferta y decisión
