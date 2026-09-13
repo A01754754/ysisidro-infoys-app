@@ -3,6 +3,7 @@ import MapboxMaps
 import CoreLocation
 
 struct ContentView: View {
+    @Environment(\.scenePhase) private var scenePhase
     @StateObject private var viewModel =
         CourierViewModel()
 
@@ -35,7 +36,8 @@ struct ContentView: View {
             voiceControls
             offerOverlay
         }
-        .task {
+        .task(id: scenePhase) {
+            guard scenePhase == .active else { return }
             await viewModel.startReceivingCourierState()
         }
         .onChange(of: viewModel.acceptedTripAnnouncement?.id) { _, _ in

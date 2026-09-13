@@ -73,7 +73,7 @@ Al configurar `DEV2_BASE_URL`, la app usa los siguientes endpoints:
 
 | Método | Endpoint | Uso |
 | --- | --- | --- |
-| `GET` | `/simulation/state` | Obtiene el snapshot completo de la simulación. |
+| `GET` | `/simulation/state` | Obtiene el snapshot completo al conectar y cada segundo, sin caché. |
 | `GET` | `/events` | Mantiene el stream SSE de actualizaciones. |
 
 El stream reconoce eventos como `simulation_snapshot`, `courier_positions`, `agent_decision_applied`, `agent_decision_failed`, `courier_waiting_agent` y `agent_request_sent`. Los cambios de pedidos, rutas, clima, calles o ciclo de la simulación provocan una actualización del snapshot.
@@ -141,3 +141,14 @@ CourierApp/
 - El target y el esquema se llaman actualmente `CorierApp` (con una sola “u”), aunque la carpeta y este documento usan `CourierApp`.
 - El proyecto todavía no incluye un target de pruebas automatizadas.
 - Los archivos de demo permiten desarrollar la interfaz sin depender de servicios externos.
+
+### Regresión del stream DEV2
+
+Desde este directorio, ejecuta la prueba del parser SSE y de posiciones consecutivas:
+
+```bash
+swiftc CourierApp/Models/Dev2CourierState.swift CourierApp/Transport/CourierStateTransport.swift Tests/CourierStateTransportTests.swift -o /tmp/courier-state-tests
+/tmp/courier-state-tests
+```
+
+La conexión en vivo conserva los delimitadores SSE, consulta `/simulation/state` cada segundo sin caché y cancela las animaciones anteriores al recibir una posición nueva. Al volver al primer plano, la app abre una conexión nueva y vuelve a cargar el estado.

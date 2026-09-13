@@ -73,6 +73,7 @@ final class CourierViewModel: ObservableObject {
         CLLocationDirection = 0
 
     private var routeProgressIndex = 0
+    private var positionAnimationTask: Task<Void, Never>?
 
     @Published private(set) var pickupLocation:
         CLLocationCoordinate2D?
@@ -216,6 +217,10 @@ final class CourierViewModel: ObservableObject {
     }
 
     func startReceivingCourierState() async {
+        defer {
+            positionAnimationTask?.cancel()
+            positionAnimationTask = nil
+        }
         isReceivingDev2State = true
         hasActiveOrder = false
         activeRouteId = nil
@@ -384,16 +389,24 @@ final class CourierViewModel: ObservableObject {
             dropoffLocation = nil
         }
 
-        try await animateDev2Position(
-            to: state.position.coordinate,
-            receivedRoute: receivedRoute
-        )
-
-        routeCoordinates = receivedRoute
-        remainingRouteCoordinates = receivedRoute.isEmpty
-            ? []
-            : [state.position.coordinate] + Array(receivedRoute.dropFirst())
-        routeProgressIndex = 0
+        // Rendering must not block consumption of newer snapshots and SSE events.
+        positionAnimationTask?.cancel()
+        positionAnimationTask = Task {
+            do {
+                try await animateDev2Position(
+                    to: state.position.coordinate,
+                    receivedRoute: receivedRoute
+                )
+                try Task.checkCancellation()
+                routeCoordinates = receivedRoute
+                remainingRouteCoordinates = receivedRoute.isEmpty
+                    ? []
+                    : [state.position.coordinate] + Array(receivedRoute.dropFirst())
+                routeProgressIndex = 0
+            } catch {
+                // A newer position or view cancellation superseded this animation.
+            }
+        }
 
         await notifyArrivalIfNeeded(
             at: state.position.coordinate
