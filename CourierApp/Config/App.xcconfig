@@ -1,0 +1,3 @@
+// Shared build settings. Keep credentials in the ignored Secrets.xcconfig file.
+MBX_ACCESS_TOKEN =
+#include? "Secrets.xcconfig"
