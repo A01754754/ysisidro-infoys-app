@@ -74,6 +74,9 @@ final class CourierViewModel: ObservableObject {
 
     private var routeProgressIndex = 0
     private var positionAnimationTask: Task<Void, Never>?
+    private var lastPositionTarget: CLLocationCoordinate2D?
+    private var lastPositionUpdate: TimeInterval?
+    private var positionUpdateInterval = 1.0
 
     @Published private(set) var pickupLocation:
         CLLocationCoordinate2D?
@@ -221,6 +224,9 @@ final class CourierViewModel: ObservableObject {
             positionAnimationTask?.cancel()
             positionAnimationTask = nil
         }
+        lastPositionTarget = nil
+        lastPositionUpdate = nil
+        positionUpdateInterval = 1.0
         isReceivingDev2State = true
         hasActiveOrder = false
         activeRouteId = nil
@@ -389,22 +395,44 @@ final class CourierViewModel: ObservableObject {
             dropoffLocation = nil
         }
 
-        // Rendering must not block consumption of newer snapshots and SSE events.
-        positionAnimationTask?.cancel()
-        positionAnimationTask = Task {
-            do {
-                try await animateDev2Position(
-                    to: state.position.coordinate,
-                    receivedRoute: receivedRoute
-                )
-                try Task.checkCancellation()
-                routeCoordinates = receivedRoute
-                remainingRouteCoordinates = receivedRoute.isEmpty
-                    ? []
-                    : [state.position.coordinate] + Array(receivedRoute.dropFirst())
-                routeProgressIndex = 0
-            } catch {
-                // A newer position or view cancellation superseded this animation.
+        let target = state.position.coordinate
+        let hasNewPosition = lastPositionTarget.map {
+            distance(from: $0, to: target) > 0.25
+        } ?? true
+        let routeChanged = !routeCoordinates.elementsEqual(receivedRoute) {
+            $0.latitude == $1.latitude && $0.longitude == $1.longitude
+        }
+
+        // Repeated snapshots must not restart movement toward the same target.
+        if hasNewPosition || routeChanged {
+            let now = ProcessInfo.processInfo.systemUptime
+            if hasNewPosition {
+                if let previousUpdate = lastPositionUpdate {
+                    let interval = min(max(now - previousUpdate, 0.1), 2.0)
+                    positionUpdateInterval = interval
+                }
+                lastPositionUpdate = now
+                lastPositionTarget = target
+            }
+            let referenceRoute = routeCoordinates.count >= 2
+                ? routeCoordinates : receivedRoute
+            routeCoordinates = receivedRoute
+            positionAnimationTask?.cancel()
+            positionAnimationTask = Task {
+                do {
+                    try await animateDev2Position(
+                        to: target,
+                        receivedRoute: receivedRoute,
+                        referenceRoute: referenceRoute,
+                        duration: positionUpdateInterval
+                    )
+                    try Task.checkCancellation()
+                    remainingRouteCoordinates = receivedRoute.isEmpty
+                        ? [] : [target] + Array(receivedRoute.dropFirst())
+                    routeProgressIndex = 0
+                } catch {
+                    // Resume from the displayed position when a newer target arrives.
+                }
             }
         }
 
@@ -743,7 +771,9 @@ final class CourierViewModel: ObservableObject {
 
     private func animateDev2Position(
         to destination: CLLocationCoordinate2D,
-        receivedRoute: [CLLocationCoordinate2D]
+        receivedRoute: [CLLocationCoordinate2D],
+        referenceRoute: [CLLocationCoordinate2D],
+        duration: TimeInterval
     ) async throws {
         guard let origin = courierCoordinate else {
             courierCoordinate = destination
@@ -755,37 +785,38 @@ final class CourierViewModel: ObservableObject {
             return
         }
 
-        let referenceRoute = routeCoordinates.count >= 2
-            ? routeCoordinates
-            : receivedRoute
         let path = movementPath(
             from: origin,
             to: destination,
             following: referenceRoute
         )
-        let steps = 57
         var previous = origin
+        var progress = 0.0
+        let routeTail = Array(receivedRoute.dropFirst())
 
-        for step in 1...steps {
+        while progress < 1 {
             try await waitWhilePaused()
             try Task.checkCancellation()
+            let frameStart = ProcessInfo.processInfo.systemUptime
+            try await Task.sleep(for: .seconds(1.0 / 60.0))
+            try Task.checkCancellation()
+            // Use elapsed time so a busy frame does not lengthen the animation.
+            if isPaused { continue }
+            let elapsed = ProcessInfo.processInfo.systemUptime - frameStart
+            progress = min(1, progress + elapsed * playbackSpeed / duration)
+            let position = coordinate(along: path, at: progress)
 
-            let linearProgress = Double(step) / Double(steps)
-            let easedProgress = linearProgress * linearProgress
-                * (3 - 2 * linearProgress)
-            let position = coordinate(
-                along: path,
-                at: easedProgress
-            )
-
-            courierBearing = calculateBearing(from: previous, to: position.coordinate)
+            if distance(from: previous, to: position.coordinate) > 0.01 {
+                let targetBearing = calculateBearing(from: previous, to: position.coordinate)
+                let delta = (targetBearing - courierBearing + 540)
+                    .truncatingRemainder(dividingBy: 360) - 180
+                courierBearing = (courierBearing + delta * (1 - exp(-elapsed / 0.18)) + 360)
+                    .truncatingRemainder(dividingBy: 360)
+            }
             courierCoordinate = position.coordinate
-            remainingRouteCoordinates = [position.coordinate]
-                + Array(path.dropFirst(position.nextIndex))
+            remainingRouteCoordinates = receivedRoute.isEmpty ? []
+                : [position.coordinate] + Array(path.dropFirst(position.nextIndex)) + routeTail
             previous = position.coordinate
-
-            let milliseconds = max(1, Int(16 / playbackSpeed))
-            try await Task.sleep(for: .milliseconds(milliseconds))
         }
 
         courierCoordinate = destination
