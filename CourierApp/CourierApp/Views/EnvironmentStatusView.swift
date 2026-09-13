@@ -2,7 +2,6 @@ import SwiftUI
 
 struct EnvironmentStatusView: View {
     let isRaining: Bool
-    let surgeMultiplier: Double?
 
     let hasClosedRoad: Bool
     
@@ -16,14 +15,6 @@ struct EnvironmentStatusView: View {
                 )
             }
 
-            if let surgeMultiplier {
-                statusBadge(
-                    text: "Surge \(surgeMultiplier, default: "%.1f")×",
-                    icon: "bolt.fill",
-                    color: .orange
-                )
-            }
-            
             if hasClosedRoad {
                 statusBadge(
                     text: "Calle cerrada",
@@ -54,7 +45,6 @@ struct EnvironmentStatusView: View {
 #Preview {
     EnvironmentStatusView(
         isRaining: true,
-        surgeMultiplier: 1.5,
         hasClosedRoad: true
     )
 }

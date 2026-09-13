@@ -5,6 +5,8 @@ struct CourierVoiceState: Encodable, Sendable {
     let streamStatus: String
     let isPaused: Bool
     let playbackSpeed: Double
+    let isAgentThinking: Bool
+    let simulatedTime: String
 
     let courierLatitude: Double?
     let courierLongitude: Double?
@@ -42,6 +44,8 @@ struct CourierVoiceState: Encodable, Sendable {
         case streamStatus = "stream_status"
         case isPaused = "is_paused"
         case playbackSpeed = "playback_speed"
+        case isAgentThinking = "agent_thinking"
+        case simulatedTime = "tiempo_simulado"
         case courierLatitude = "courier_latitude"
         case courierLongitude = "courier_longitude"
         case courierId = "courier_id"

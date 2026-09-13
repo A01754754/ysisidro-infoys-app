@@ -37,6 +37,13 @@ struct CourierStateTransportTests {
             precondition(positions.last == latitude, "Position must update while stream remains open")
         }
         precondition(positions.count == 3)
+        for name in ["agent_decision_skipped", "agent_decision_superseded",
+                     "agent_plan_invalidated", "order_expired", "order_route_unavailable",
+                     "order_route_available"] {
+            guard case .refreshSnapshot = try transport.decodeEvent(name: name, data: "{\"data\":{}}") else {
+                preconditionFailure("Must resynchronize after \(name)")
+            }
+        }
         print("PASS: SSE framing, newline variants, heartbeat, UTF-8, multiline data, and consecutive live positions")
     }
 }

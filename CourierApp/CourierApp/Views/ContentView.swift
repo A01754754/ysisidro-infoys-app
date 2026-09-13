@@ -282,6 +282,16 @@ struct ContentView: View {
                     : nil
             )
 
+            if viewModel.isAgentThinking {
+                HStack(spacing: 8) {
+                    ProgressView()
+                    Text("El agente está pensando…")
+                }
+                .font(.subheadline)
+                .padding(10)
+                .background(.ultraThinMaterial, in: Capsule())
+            }
+
             Text(viewModel.lastEventText)
                 .font(.headline)
                 .padding(.horizontal, 16)
@@ -290,45 +300,6 @@ struct ContentView: View {
                     .ultraThinMaterial,
                     in: Capsule()
                 )
-
-            if let courierId = viewModel.courierId,
-               let courierStatus = viewModel.courierStatus {
-
-                Label(
-                    "\(courierId) · \(courierStatus)",
-                    systemImage:
-                        viewModel.isControlledByAgent
-                        ? "cpu.fill"
-                        : "person.fill"
-                )
-                .font(.caption.bold())
-                .padding(.horizontal, 12)
-                .padding(.vertical, 7)
-                .background(
-                    .ultraThinMaterial,
-                    in: Capsule()
-                )
-            }
-
-            Label(
-                viewModel.streamStatusText,
-                systemImage:
-                    viewModel.hasSequenceGap
-                    ? "exclamationmark.triangle.fill"
-                    : "checkmark.shield.fill"
-            )
-            .font(.caption.bold())
-            .foregroundStyle(
-                viewModel.hasSequenceGap
-                ? Color.orange
-                : Color.green
-            )
-            .padding(.horizontal, 12)
-            .padding(.vertical, 7)
-            .background(
-                .ultraThinMaterial,
-                in: Capsule()
-            )
 
             if let arrivalMessage =
                 viewModel.arrivalMessage {
@@ -355,12 +326,10 @@ struct ContentView: View {
             }
             
             if viewModel.isRaining ||
-                viewModel.surgeMultiplier != nil ||
                 !viewModel.closedRoadCoordinates.isEmpty {
 
                 EnvironmentStatusView(
                     isRaining: viewModel.isRaining,
-                    surgeMultiplier: viewModel.surgeMultiplier,
                     hasClosedRoad:
                         !viewModel.closedRoadCoordinates.isEmpty
                 )

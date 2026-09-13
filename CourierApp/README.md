@@ -78,6 +78,8 @@ Al configurar `DEV2_BASE_URL`, la app usa los siguientes endpoints:
 
 El stream reconoce eventos como `simulation_snapshot`, `courier_positions`, `agent_decision_applied`, `agent_decision_failed`, `courier_waiting_agent` y `agent_request_sent`. Los cambios de pedidos, rutas, clima, calles o ciclo de la simulación provocan una actualización del snapshot.
 
+La integración también sincroniza decisiones omitidas o reemplazadas (`agent_decision_skipped`, `agent_decision_superseded`), planes invalidados y cambios de disponibilidad de rutas. El indicador de agente pensando refleja `agente.decision_pendiente`, independientemente de si el courier ya tiene una ruta. El reloj y las posiciones siempre provienen del simulador: un tiempo repetido permanece congelado y las actualizaciones posteriores se aplican automáticamente. La app no detiene ni reinicia el servidor para esperar al agente. Al iniciar envía `{}` a `/simulation/start`, conservando los valores predeterminados del simulador.
+
 Si DEV2 corre en la misma Mac que el simulador, `localhost` suele ser suficiente. Desde un iPhone físico debes usar una dirección de red accesible para el dispositivo. La app declara acceso a la red local en `Info.plist`.
 
 ## Configuración del agente de voz
@@ -87,8 +89,8 @@ El agente habla en español y recibe contexto del courier y del viaje aceptado. 
 | Herramienta | Parámetros | Acción |
 | --- | --- | --- |
 | `get_courier_state` | Ninguno | Devuelve el estado actual del courier, ruta, pedido, ganancias y entorno. |
-| `pause_simulation` | Ninguno | Pausa el procesamiento de eventos. |
-| `resume_simulation` | Ninguno | Reanuda el procesamiento. |
+| `pause_simulation` | Ninguno | Pausa la animación local; en DEV2 sigue recibiendo estado y decisiones. |
+| `resume_simulation` | Ninguno | Reanuda la animación hacia la posición recibida más reciente. |
 | `set_playback_speed` | `speed`: número | Cambia la velocidad a `1`, `5` o `20`. |
 
 La aplicación solicita permiso de micrófono al iniciar una conversación y comienza con el micrófono activo. Usa el control del micrófono en pantalla para silenciarlo o volverlo a activar. Cada pedido nuevo aceptado cierra cualquier sesión anterior y fuerza una conversación nueva con el contexto exclusivo de ese pedido. Si no se detecta voz y el agente tampoco está hablando o pensando durante el tiempo configurado en `VoiceAgentManager.inactivityTimeout`, la sesión termina automáticamente.
@@ -154,3 +156,10 @@ swiftc CourierApp/Models/Dev2CourierState.swift CourierApp/Transport/CourierStat
 ```
 
 La conexión en vivo conserva los delimitadores SSE, consulta `/simulation/state` cada segundo sin caché y cancela las animaciones anteriores al recibir una posición nueva. Al volver al primer plano, la app abre una conexión nueva y vuelve a cargar el estado.
+
+Para verificar espera del agente, recuperación tras errores y movimiento posterior sin bloquear el stream:
+
+```bash
+swiftc CourierApp/AppConfiguration.swift CourierApp/Models/*.swift CourierApp/Transport/*.swift CourierApp/ViewModels/CourierViewModel.swift Tests/CourierDecisionLifecycleTests.swift -o /tmp/courier-lifecycle-tests
+/tmp/courier-lifecycle-tests
+```

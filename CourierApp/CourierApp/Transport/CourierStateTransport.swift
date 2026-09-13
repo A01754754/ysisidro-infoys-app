@@ -99,7 +99,7 @@ struct Dev2SSECourierStateTransport: CourierStateTransport {
         )
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.httpBody = Data(#"{"background_couriers":1}"#.utf8)
+        request.httpBody = Data(#"{}"#.utf8)
         let (_, response) = try await session.data(for: request)
         try validate(response)
     }
@@ -217,7 +217,9 @@ struct Dev2SSECourierStateTransport: CourierStateTransport {
         case "order_created", "order_picked", "order_delivered",
              "route_recalculated", "weather_changed", "street_closed",
              "route_unreachable", "simulation_started", "simulation_stopped",
-             "simulation_reset":
+             "simulation_reset", "agent_decision_skipped", "agent_decision_superseded",
+             "agent_plan_invalidated", "order_expired", "order_route_unavailable",
+             "order_route_available":
             return .refreshSnapshot
 
         default:

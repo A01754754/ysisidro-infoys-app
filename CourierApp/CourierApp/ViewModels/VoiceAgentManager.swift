@@ -29,7 +29,7 @@ final class VoiceAgentManager: ObservableObject {
     private static let inactivityTimeout: Duration = .seconds(5)
 
     private static let courierAgentPrompt = """
-    Actúa como un agente inteligente que acompaña a un courier. Habla y responde siempre en español claro y breve. Tu objetivo es ayudarle a tomar buenas decisiones para maximizar su ganancia sin inventar datos. Usa el contexto del simulador para explicar por qué se aceptó un pedido, qué paradas siguen y qué cambió en la ruta. Si el contexto indica que una descripción fue generada localmente porque DEV2 aún no la envía, dilo con honestidad cuando sea relevante.
+    Actúa como un agente inteligente que acompaña a un courier. Habla y responde siempre en español claro y breve, trata de ser lo más conciso posible. Tu objetivo es ayudarle a tomar buenas decisiones para maximizar su ganancia sin inventar datos. Usa el contexto del simulador para explicar por qué se aceptó un pedido, qué paradas siguen y qué cambió en la ruta. Si el contexto indica que una descripción fue generada localmente porque DEV2 aún no la envía, dilo con honestidad cuando sea relevante.
     """
 
     func toggleConversation(

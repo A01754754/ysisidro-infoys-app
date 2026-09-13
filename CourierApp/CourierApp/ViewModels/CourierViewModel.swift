@@ -25,6 +25,8 @@ final class CourierViewModel: ObservableObject {
 
     @Published private(set) var isPaused = false
     @Published private(set) var playbackSpeed = 1.0
+    @Published private(set) var isAgentThinking = false
+    @Published private(set) var simulatedTime = ""
 
     @Published private(set) var netEarnings = 125.0
     @Published private(set) var remainingMinutes = 45
@@ -97,7 +99,6 @@ final class CourierViewModel: ObservableObject {
     private var announcedOrderIds: Set<String> = []
     private var didEnsureSimulationRunning = false
     private var lastAgentError: String?
-    private var agentPending = false
 
     init(
         transport: (any EventTransport)? = nil,
@@ -179,6 +180,8 @@ final class CourierViewModel: ObservableObject {
             streamStatus: streamStatusText,
             isPaused: isPaused,
             playbackSpeed: playbackSpeed,
+            isAgentThinking: isAgentThinking,
+            simulatedTime: simulatedTime,
             courierLatitude: courierCoordinate?.latitude,
             courierLongitude: courierCoordinate?.longitude,
             courierId: courierId,
@@ -237,7 +240,8 @@ final class CourierViewModel: ObservableObject {
         do {
             for try await message
                 in courierStateTransport.eventStream() {
-                try await waitWhilePaused()
+                // Keep consuming decisions and snapshots even when presentation is paused.
+                // The simulator owns its clock and decision lifecycle.
                 try Task.checkCancellation()
                 try await process(message)
             }
@@ -264,13 +268,14 @@ final class CourierViewModel: ObservableObject {
             try await apply(snapshot)
 
         case let .courierPositions(couriers, simulatedTime):
+            if let simulatedTime { self.simulatedTime = simulatedTime }
             if let courier = couriers.first(where: \.controlledByAgent) {
                 try await apply(courier, simulatedTime: simulatedTime)
             }
 
         case let .agentDecisionApplied(decision):
             lastAgentError = nil
-            agentPending = false
+            isAgentThinking = false
             apply(decision)
             if let snapshot = try? await courierStateTransport.fetchSnapshot() {
                 try await apply(snapshot)
@@ -278,11 +283,11 @@ final class CourierViewModel: ObservableObject {
 
         case let .agentDecisionFailed(error):
             lastAgentError = error
-            agentPending = false
+            isAgentThinking = false
             lastEventText = "La decisión del agente falló: \(error)"
 
         case let .agentWaiting(reason):
-            agentPending = true
+            isAgentThinking = true
             lastEventText = "El courier espera al agente: \(reason)"
 
         case .refreshSnapshot:
@@ -332,7 +337,8 @@ final class CourierViewModel: ObservableObject {
             .contains(weatherType)
         surgeMultiplier = snapshot.weather?.newOrderPaymentMultiplier
         lastAgentError = snapshot.agent?.lastError
-        agentPending = snapshot.agent?.pending ?? false
+        isAgentThinking = snapshot.agent?.pending ?? false
+        simulatedTime = snapshot.simulatedTime
 
         guard let courier = snapshot.controlledCourier else {
             lastEventText = "DEV2 no envió un courier controlado por el agente."
@@ -445,7 +451,7 @@ final class CourierViewModel: ObservableObject {
 
         if isIdle, let error = lastAgentError {
             lastEventText = "Agente sin ruta: \(error)"
-        } else if isIdle, agentPending {
+        } else if isAgentThinking {
             lastEventText = "Esperando decisión del agente\(timeSuffix)"
         } else {
             lastEventText = "Estado DEV2: \(state.courierStatus)\(timeSuffix)"
