@@ -80,30 +80,8 @@ final class VoiceAgentManager: ObservableObject {
         statusText = "Conectando con ElevenLabs…"
 
         let startupAnnouncement = announcement ?? pendingAnnouncement
-        let prompt: String
-        if let startupAnnouncement {
-            prompt = Self.courierAgentPrompt
-                + "\n\nContexto del viaje actual:\n"
-                + announcementContext(startupAnnouncement)
-        } else {
-            prompt = Self.courierAgentPrompt
-        }
 
         let config = ConversationConfig(
-            agentOverrides: AgentOverrides(
-                prompt: prompt,
-                firstMessage: startupAnnouncement == nil
-                    ? nil
-                    : Self.acceptedTripMessage
-            ),
-            dynamicVariables: startupAnnouncement.map {
-                [
-                    "accepted_order_ids": $0.orderIds.joined(separator: ","),
-                    "accepted_trip_description": $0.description,
-                    "ordered_stops": $0.orderedStops.joined(separator: ","),
-                    "directions": $0.directions.joined(separator: " | ")
-                ]
-            },
             onError: { [weak self] error in
                 Task { @MainActor [weak self] in
                     self?.show(error: error)
@@ -154,17 +132,10 @@ final class VoiceAgentManager: ObservableObject {
             isConnected = true
             statusText = "Asistente conectado"
 
-            do {
-                try await conversation.setMuted(true)
-            } catch {
-                errorMessage = "El asistente se conectó, pero no se pudo silenciar el micrófono: \(error.localizedDescription)"
-            }
+            await sendCourierContext(through: conversation)
 
             if let startupAnnouncement {
-                announcedTripIds.insert(startupAnnouncement.id)
-                if pendingAnnouncement?.id == startupAnnouncement.id {
-                    pendingAnnouncement = nil
-                }
+                await deliver(startupAnnouncement, through: conversation)
             } else if let pendingAnnouncement {
                 await deliver(pendingAnnouncement, through: conversation)
             }
@@ -175,6 +146,17 @@ final class VoiceAgentManager: ObservableObject {
         }
 
         connectTask = nil
+    }
+
+    private func sendCourierContext(
+        through conversation: Conversation
+    ) async {
+        do {
+            try await conversation.updateContext(Self.courierAgentPrompt)
+        } catch {
+            errorMessage =
+                "El asistente se conectó, pero no recibió el contexto: \(error.localizedDescription)"
+        }
     }
 
     private func deliver(

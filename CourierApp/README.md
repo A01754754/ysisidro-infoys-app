@@ -91,7 +91,7 @@ El agente habla en español y recibe contexto del courier y del viaje aceptado. 
 | `resume_simulation` | Ninguno | Reanuda el procesamiento. |
 | `set_playback_speed` | `speed`: número | Cambia la velocidad a `1`, `5` o `20`. |
 
-La aplicación solicita permiso de micrófono al iniciar una conversación. Puede iniciarse silenciada; usa el control del micrófono en pantalla para hablar con el agente.
+La aplicación solicita permiso de micrófono al iniciar una conversación y comienza con el micrófono activo. Usa el control del micrófono en pantalla para silenciarlo o volverlo a activar.
 
 ## Arquitectura
 
