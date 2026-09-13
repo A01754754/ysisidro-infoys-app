@@ -92,6 +92,7 @@ struct Dev2SimulationSnapshot: Decodable, Sendable {
     let traffic: Dev2Traffic?
     let couriers: [Dev2CourierState]
     let orders: [Dev2Order]
+    let agent: Dev2AgentInfo?
 
     var controlledCourier: Dev2CourierState? {
         couriers.first(where: \.controlledByAgent)
@@ -105,6 +106,7 @@ struct Dev2SimulationSnapshot: Decodable, Sendable {
         case traffic = "trafico"
         case couriers
         case orders = "pedidos"
+        case agent = "agente"
     }
 
     init(from decoder: Decoder) throws {
@@ -116,6 +118,25 @@ struct Dev2SimulationSnapshot: Decodable, Sendable {
         traffic = try container.decodeIfPresent(Dev2Traffic.self, forKey: .traffic)
         couriers = try container.decodeIfPresent([Dev2CourierState].self, forKey: .couriers) ?? []
         orders = try container.decodeIfPresent([Dev2Order].self, forKey: .orders) ?? []
+        agent = try container.decodeIfPresent(Dev2AgentInfo.self, forKey: .agent)
+    }
+}
+
+struct Dev2AgentInfo: Decodable, Sendable {
+    let pending: Bool
+    let lastError: String?
+
+    enum CodingKeys: String, CodingKey {
+        case pending = "decision_pendiente"
+        case lastError = "ultimo_error"
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        pending = try container.decodeIfPresent(Bool.self, forKey: .pending) ?? false
+        let error = try container.decodeIfPresent(String.self, forKey: .lastError)?
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        lastError = (error?.isEmpty == false) ? error : nil
     }
 }
 

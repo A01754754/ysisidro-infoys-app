@@ -91,6 +91,9 @@ final class CourierViewModel: ObservableObject {
     private var sentArrivalActionIds: Set<String> = []
     private var dev2OrdersById: [String: Dev2Order] = [:]
     private var announcedOrderIds: Set<String> = []
+    private var didEnsureSimulationRunning = false
+    private var lastAgentError: String?
+    private var agentPending = false
 
     init(
         transport: (any EventTransport)? = nil,
@@ -240,6 +243,7 @@ final class CourierViewModel: ObservableObject {
         switch message {
         case .connected:
             streamStatusText = "Conectado con DEV2"
+            await ensureSimulationRunning()
 
         case let .reconnecting(error):
             streamStatusText = "Reconectando con DEV2…"
@@ -254,20 +258,49 @@ final class CourierViewModel: ObservableObject {
             }
 
         case let .agentDecisionApplied(decision):
+            lastAgentError = nil
+            agentPending = false
             apply(decision)
             if let snapshot = try? await courierStateTransport.fetchSnapshot() {
                 try await apply(snapshot)
             }
 
         case let .agentDecisionFailed(error):
+            lastAgentError = error
+            agentPending = false
             lastEventText = "La decisión del agente falló: \(error)"
 
         case let .agentWaiting(reason):
+            agentPending = true
             lastEventText = "El courier espera al agente: \(reason)"
 
         case .refreshSnapshot:
+            if let snapshot = try? await courierStateTransport.fetchSnapshot() {
+                try await apply(snapshot)
+            }
+        }
+    }
+
+    private func ensureSimulationRunning() async {
+        guard !didEnsureSimulationRunning else { return }
+
+        do {
             let snapshot = try await courierStateTransport.fetchSnapshot()
-            try await apply(snapshot)
+            if snapshot.isRunning {
+                didEnsureSimulationRunning = true
+                try await apply(snapshot)
+                return
+            }
+
+            try await courierStateTransport.startSimulation()
+            didEnsureSimulationRunning = true
+            lastEventText = "Simulación iniciada"
+            if let started = try? await courierStateTransport.fetchSnapshot() {
+                try await apply(started)
+            }
+        } catch {
+            lastEventText =
+                "No se pudo iniciar la simulación: \(error.localizedDescription)"
         }
     }
 
@@ -287,6 +320,8 @@ final class CourierViewModel: ObservableObject {
         isRaining = ["rain", "rainy", "storm", "lluvia", "tormenta"]
             .contains(weatherType)
         surgeMultiplier = snapshot.weather?.newOrderPaymentMultiplier
+        lastAgentError = snapshot.agent?.lastError
+        agentPending = snapshot.agent?.pending ?? false
 
         guard let courier = snapshot.controlledCourier else {
             lastEventText = "DEV2 no envió un courier controlado por el agente."
@@ -365,7 +400,15 @@ final class CourierViewModel: ObservableObject {
         )
 
         let timeSuffix = simulatedTime.flatMap { $0.isEmpty ? nil : " · \($0)" } ?? ""
-        lastEventText = "Estado DEV2: \(state.courierStatus)\(timeSuffix)"
+        let isIdle = state.courierStatus == "wait"
+
+        if isIdle, let error = lastAgentError {
+            lastEventText = "Agente sin ruta: \(error)"
+        } else if isIdle, agentPending {
+            lastEventText = "Esperando decisión del agente\(timeSuffix)"
+        } else {
+            lastEventText = "Estado DEV2: \(state.courierStatus)\(timeSuffix)"
+        }
         streamStatusText = "Conectado con DEV2"
     }
 

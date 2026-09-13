@@ -3,6 +3,7 @@ import Foundation
 protocol CourierStateTransport: Sendable {
     func eventStream() -> AsyncThrowingStream<Dev2StreamMessage, Error>
     func fetchSnapshot() async throws -> Dev2SimulationSnapshot
+    func startSimulation() async throws
 }
 
 enum CourierStateTransportError: LocalizedError {
@@ -37,6 +38,8 @@ struct BundledCourierStateTransport: CourierStateTransport {
         let data = try Data(contentsOf: url)
         return try JSONDecoder().decode(Dev2SimulationSnapshot.self, from: data)
     }
+
+    func startSimulation() async throws {}
 
     func eventStream() -> AsyncThrowingStream<Dev2StreamMessage, Error> {
         AsyncThrowingStream(bufferingPolicy: .bufferingNewest(16)) { continuation in
@@ -88,6 +91,17 @@ struct Dev2SSECourierStateTransport: CourierStateTransport {
         return try JSONDecoder().decode(Dev2SimulationSnapshot.self, from: data)
     }
 
+    func startSimulation() async throws {
+        var request = URLRequest(
+            url: baseURL.appendingPathComponent("simulation/start")
+        )
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = Data(#"{"background_couriers":1}"#.utf8)
+        let (_, response) = try await session.data(for: request)
+        try validate(response)
+    }
+
     func eventStream() -> AsyncThrowingStream<Dev2StreamMessage, Error> {
         AsyncThrowingStream(bufferingPolicy: .bufferingNewest(16)) { continuation in
             let task = Task {
@@ -97,7 +111,7 @@ struct Dev2SSECourierStateTransport: CourierStateTransport {
                     do {
                         var request = URLRequest(url: baseURL.appendingPathComponent("events"))
                         request.setValue("text/event-stream", forHTTPHeaderField: "Accept")
-                        request.timeoutInterval = 60
+        request.timeoutInterval = 600
 
                         let (bytes, response) = try await session.bytes(for: request)
                         try validate(response)
@@ -256,7 +270,7 @@ private struct AgentDecisionData: Decodable {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         reason = try container.decodeIfPresent(String.self, forKey: .reason) ?? ""
         acceptedOrderIds = try container.decodeIfPresent([String].self, forKey: .acceptedOrderIds) ?? []
-        orderedStops = try container.decodeIfPresent([String].self, forKey: .orderedStops) ?? []
+        orderedStops = Self.decodeOrderedStops(from: container)
         directions = Self.decodeStringList(
             from: container,
             primaryKey: .directions,
@@ -264,6 +278,21 @@ private struct AgentDecisionData: Decodable {
         )
         description = try container.decodeIfPresent(String.self, forKey: .description)
             ?? container.decodeIfPresent(String.self, forKey: .englishDescription)
+    }
+
+    private static func decodeOrderedStops(
+        from container: KeyedDecodingContainer<CodingKeys>
+    ) -> [String] {
+        if let values = try? container.decode([String].self, forKey: .orderedStops) {
+            return values
+        }
+        if let stops = try? container.decode(
+            [OrderedStopID].self,
+            forKey: .orderedStops
+        ) {
+            return stops.map(\.id)
+        }
+        return []
     }
 
     private static func decodeStringList(
@@ -285,6 +314,10 @@ private struct AgentDecisionData: Decodable {
         }
         return []
     }
+}
+
+private struct OrderedStopID: Decodable {
+    let id: String
 }
 
 private struct MessageEvent: Decodable {
