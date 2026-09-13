@@ -1,21 +1,71 @@
 {
-  "courier_id": "courier-agent",
-  "controlado_por_agente": true,
-  "estado_courier": "pick",
-  "posicion": {
-    "latitud": 25.681234,
-    "longitud": -100.306112
+  "corriendo": true,
+  "tiempo_simulado": "2026-09-12T13:00:00-06:00",
+  "velocidad": {
+    "segundos_reales": 1,
+    "segundos_simulados": 30
   },
-  "destino_actual": {
-    "id": "pick-order-12",
-    "type": "pick",
-    "latitud": 25.676891,
-    "longitud": -100.298445
+  "clima": {
+    "tipo": "clear",
+    "multiplicador_aristas": 1,
+    "multiplicador_pago_nuevos_pedidos": 1
   },
-  "ruta_actual": [
-    { "latitud": 25.681234, "longitud": -100.306112 },
-    { "latitud": 25.681101, "longitud": -100.305844 },
-    { "latitud": 25.680772, "longitud": -100.305201 },
-    { "latitud": 25.676891, "longitud": -100.298445 }
-  ]
+  "trafico": {
+    "multiplicador_aristas": 1
+  },
+  "couriers": [
+    {
+      "courier_id": "courier-agent",
+      "controlado_por_agente": true,
+      "estado_courier": "pick",
+      "pedidos_activos": 1,
+      "ganancia_acumulada_mxn": 125,
+      "posicion": {
+        "latitud": 25.681234,
+        "longitud": -100.306112
+      },
+      "destino_actual": {
+        "id": "pick-order-12",
+        "pedido_id": "order-12",
+        "type": "pick",
+        "latitud": 25.676891,
+        "longitud": -100.298445,
+        "obligatoria": false
+      },
+      "ruta_actual": [
+        { "latitud": 25.681234, "longitud": -100.306112 },
+        { "latitud": 25.681101, "longitud": -100.305844 },
+        { "latitud": 25.680772, "longitud": -100.305201 },
+        { "latitud": 25.676891, "longitud": -100.298445 }
+      ],
+      "trayectoria_actual": null
+    }
+  ],
+  "pedidos": [
+    {
+      "pedido_id": "order-12",
+      "estado": "accepted",
+      "pago_mxn": 89,
+      "restaurante": {
+        "id": "restaurant-12",
+        "nombre": "Restaurante Centro",
+        "zona": "Centro",
+        "latitud": 25.676891,
+        "longitud": -100.298445
+      },
+      "entrega": {
+        "id": "delivery-12",
+        "nombre": "Cliente order-12",
+        "zona": "Obispado",
+        "latitud": 25.673810,
+        "longitud": -100.310220
+      }
+    }
+  ],
+  "calles_cerradas": [],
+  "agente": {
+    "decision_pendiente": false,
+    "ultimo_error": ""
+  },
+  "cache_matrices": {}
 }

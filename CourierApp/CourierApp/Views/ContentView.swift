@@ -38,6 +38,18 @@ struct ContentView: View {
         .task {
             await viewModel.startReceivingCourierState()
         }
+        .onChange(of: viewModel.acceptedTripAnnouncement?.id) { _, _ in
+            guard let announcement = viewModel.acceptedTripAnnouncement else {
+                return
+            }
+
+            Task {
+                await voiceAgentManager.announceAcceptedTrip(
+                    announcement,
+                    courierViewModel: viewModel
+                )
+            }
+        }
         .onDisappear {
             Task {
                 await voiceAgentManager.endConversation()
@@ -261,7 +273,11 @@ struct ContentView: View {
                 remainingMinutes:
                     viewModel.remainingMinutes,
                 completedDeliveries:
-                    viewModel.completedDeliveries
+                    viewModel.completedDeliveries,
+                activeOrders:
+                    viewModel.isReceivingDev2State
+                    ? viewModel.activeOrderCount
+                    : nil
             )
 
             Text(viewModel.lastEventText)

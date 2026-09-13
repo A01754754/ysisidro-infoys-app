@@ -4,8 +4,8 @@
 <dict>
 	<key>MBXAccessToken</key>
 	<string>$(MBX_ACCESS_TOKEN)</string>
-	<key>DEV2_STATE_URL</key>
-	<string>$(DEV2_STATE_URL)</string>
+	<key>DEV2_BASE_URL</key>
+	<string>$(DEV2_BASE_URL)</string>
 	<key>ELEVENLABS_AGENT_ID</key>
 	<string>$(ELEVENLABS_AGENT_ID)</string>
 	<key>NSAppTransportSecurity</key>

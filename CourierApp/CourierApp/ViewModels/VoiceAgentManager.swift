@@ -17,6 +17,15 @@ final class VoiceAgentManager: ObservableObject {
     private var connectTask: Task<Conversation, Error>?
     private var cancellables: Set<AnyCancellable> = []
     private weak var courierViewModel: CourierViewModel?
+    private var pendingAnnouncement: AcceptedTripAnnouncement?
+    private var announcedTripIds: Set<String> = []
+
+    private static let acceptedTripMessage =
+        "Has aceptado un viaje automáticamente. Si tienes dudas de por qué aceptaste este viaje, házmelo saber."
+
+    private static let courierAgentPrompt = """
+    Actúa como un agente inteligente que acompaña a un courier. Habla en español claro y breve. Tu objetivo es ayudarle a tomar buenas decisiones para maximizar su ganancia sin inventar datos. Usa el contexto del simulador para explicar por qué se aceptó un pedido, qué paradas siguen y qué cambió en la ruta. Si el contexto indica que una descripción fue generada localmente porque DEV2 aún no la envía, dilo con honestidad cuando sea relevante.
+    """
 
     func toggleConversation(
         courierViewModel: CourierViewModel
@@ -30,8 +39,28 @@ final class VoiceAgentManager: ObservableObject {
         }
     }
 
-    func startConversation(
+    func announceAcceptedTrip(
+        _ announcement: AcceptedTripAnnouncement,
         courierViewModel: CourierViewModel
+    ) async {
+        guard !announcedTripIds.contains(announcement.id) else { return }
+
+        self.courierViewModel = courierViewModel
+        pendingAnnouncement = announcement
+
+        if isConnected, let conversation {
+            await deliver(announcement, through: conversation)
+        } else if !isConnecting {
+            await startConversation(
+                courierViewModel: courierViewModel,
+                announcement: announcement
+            )
+        }
+    }
+
+    func startConversation(
+        courierViewModel: CourierViewModel,
+        announcement: AcceptedTripAnnouncement? = nil
     ) async {
         guard let agentId =
                 AppConfiguration.elevenLabsAgentId else {
@@ -50,7 +79,31 @@ final class VoiceAgentManager: ObservableObject {
         isConnecting = true
         statusText = "Conectando con ElevenLabs…"
 
+        let startupAnnouncement = announcement ?? pendingAnnouncement
+        let prompt: String
+        if let startupAnnouncement {
+            prompt = Self.courierAgentPrompt
+                + "\n\nContexto del viaje actual:\n"
+                + announcementContext(startupAnnouncement)
+        } else {
+            prompt = Self.courierAgentPrompt
+        }
+
         let config = ConversationConfig(
+            agentOverrides: AgentOverrides(
+                prompt: prompt,
+                firstMessage: startupAnnouncement == nil
+                    ? nil
+                    : Self.acceptedTripMessage
+            ),
+            dynamicVariables: startupAnnouncement.map {
+                [
+                    "accepted_order_ids": $0.orderIds.joined(separator: ","),
+                    "accepted_trip_description": $0.description,
+                    "ordered_stops": $0.orderedStops.joined(separator: ","),
+                    "directions": $0.directions.joined(separator: " | ")
+                ]
+            },
             onError: { [weak self] error in
                 Task { @MainActor [weak self] in
                     self?.show(error: error)
@@ -100,6 +153,21 @@ final class VoiceAgentManager: ObservableObject {
             isConnecting = false
             isConnected = true
             statusText = "Asistente conectado"
+
+            do {
+                try await conversation.setMuted(true)
+            } catch {
+                errorMessage = "El asistente se conectó, pero no se pudo silenciar el micrófono: \(error.localizedDescription)"
+            }
+
+            if let startupAnnouncement {
+                announcedTripIds.insert(startupAnnouncement.id)
+                if pendingAnnouncement?.id == startupAnnouncement.id {
+                    pendingAnnouncement = nil
+                }
+            } else if let pendingAnnouncement {
+                await deliver(pendingAnnouncement, through: conversation)
+            }
         } catch is CancellationError {
             resetConnectionState()
         } catch {
@@ -107,6 +175,36 @@ final class VoiceAgentManager: ObservableObject {
         }
 
         connectTask = nil
+    }
+
+    private func deliver(
+        _ announcement: AcceptedTripAnnouncement,
+        through conversation: Conversation
+    ) async {
+        do {
+            try await conversation.updateContext(announcementContext(announcement))
+            try await conversation.sendMessage(
+                "Evento del sistema: se aceptó un viaje automáticamente. Responde diciendo: \(Self.acceptedTripMessage)"
+            )
+            announcedTripIds.insert(announcement.id)
+            if pendingAnnouncement?.id == announcement.id {
+                pendingAnnouncement = nil
+            }
+        } catch {
+            errorMessage = "No se pudo anunciar el viaje: \(error.localizedDescription)"
+            statusText = "Error al actualizar el contexto"
+        }
+    }
+
+    private func announcementContext(
+        _ announcement: AcceptedTripAnnouncement
+    ) -> String {
+        """
+        Pedidos aceptados: \(announcement.orderIds.joined(separator: ", ")).
+        Descripción: \(announcement.description)
+        Paradas ordenadas: \(announcement.orderedStops.isEmpty ? "no disponibles" : announcement.orderedStops.joined(separator: " → ")).
+        Indicaciones: \(announcement.directions.isEmpty ? "no disponibles" : announcement.directions.joined(separator: " ")).
+        """
     }
 
     func endConversation() async {

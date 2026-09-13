@@ -4,6 +4,7 @@ struct DashboardView: View {
     let netEarnings: Double
     let remainingMinutes: Int
     let completedDeliveries: Int
+    let activeOrders: Int?
 
     var body: some View {
         HStack(spacing: 8) {
@@ -14,12 +15,21 @@ struct DashboardView: View {
                 color: .green
             )
 
-            metric(
-                title: "Restante",
-                value: "\(remainingMinutes) min",
-                icon: "clock.fill",
-                color: .orange
-            )
+            if let activeOrders {
+                metric(
+                    title: "Activos",
+                    value: "\(activeOrders)",
+                    icon: "shippingbox.fill",
+                    color: .orange
+                )
+            } else {
+                metric(
+                    title: "Restante",
+                    value: "\(remainingMinutes) min",
+                    icon: "clock.fill",
+                    color: .orange
+                )
+            }
 
             metric(
                 title: "Entregas",
@@ -60,7 +70,8 @@ struct DashboardView: View {
     DashboardView(
         netEarnings: 125,
         remainingMinutes: 45,
-        completedDeliveries: 2
+        completedDeliveries: 2,
+        activeOrders: 1
     )
     .padding()
 }

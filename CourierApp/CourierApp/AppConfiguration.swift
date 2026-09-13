@@ -1,8 +1,8 @@
 import Foundation
 
 enum AppConfiguration {
-    static var dev2StateURL: URL? {
-        configuredURL(forInfoDictionaryKey: "DEV2_STATE_URL")
+    static var dev2BaseURL: URL? {
+        configuredURL(forInfoDictionaryKey: "DEV2_BASE_URL")
     }
 
     static var elevenLabsAgentId: String? {
