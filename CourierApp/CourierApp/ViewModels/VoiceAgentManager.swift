@@ -15,6 +15,7 @@ final class VoiceAgentManager: ObservableObject {
 
     private var conversation: Conversation?
     private var connectTask: Task<Conversation, Error>?
+    private var inactivityTask: Task<Void, Never>?
     private var cancellables: Set<AnyCancellable> = []
     private weak var courierViewModel: CourierViewModel?
     private var pendingAnnouncement: AcceptedTripAnnouncement?
@@ -22,6 +23,8 @@ final class VoiceAgentManager: ObservableObject {
 
     private static let acceptedTripMessage =
         "Has aceptado un viaje automáticamente. Si tienes dudas de por qué aceptaste este viaje, házmelo saber."
+
+    private static let inactivityTimeout: Duration = .seconds(5)
 
     private static let courierAgentPrompt = """
     Actúa como un agente inteligente que acompaña a un courier. Habla en español claro y breve. Tu objetivo es ayudarle a tomar buenas decisiones para maximizar su ganancia sin inventar datos. Usa el contexto del simulador para explicar por qué se aceptó un pedido, qué paradas siguen y qué cambió en la ruta. Si el contexto indica que una descripción fue generada localmente porque DEV2 aún no la envía, dilo con honestidad cuando sea relevante.
@@ -91,12 +94,21 @@ final class VoiceAgentManager: ObservableObject {
                 Task { @MainActor [weak self] in
                     self?.lastTranscript =
                         "Agente: \(text)"
+                    self?.registerVoiceActivity()
                 }
             },
             onUserTranscript: { [weak self] text, _ in
                 Task { @MainActor [weak self] in
                     self?.lastTranscript =
                         "Tú: \(text)"
+                    self?.registerVoiceActivity()
+                }
+            },
+            onVadScore: { [weak self] score in
+                guard score >= 0.5 else { return }
+
+                Task { @MainActor [weak self] in
+                    self?.registerVoiceActivity()
                 }
             },
             onUnhandledClientToolCall: {
@@ -139,6 +151,8 @@ final class VoiceAgentManager: ObservableObject {
             } else if let pendingAnnouncement {
                 await deliver(pendingAnnouncement, through: conversation)
             }
+
+            scheduleInactivityTimeout()
         } catch is CancellationError {
             resetConnectionState()
         } catch {
@@ -190,6 +204,7 @@ final class VoiceAgentManager: ObservableObject {
     }
 
     func endConversation() async {
+        cancelInactivityTimeout()
         connectTask?.cancel()
         connectTask = nil
 
@@ -238,11 +253,14 @@ final class VoiceAgentManager: ObservableObject {
                     switch agentState {
                     case .listening:
                         statusText = "Escuchando…"
+                        scheduleInactivityTimeout()
                     case .speaking:
                         statusText =
                             "El agente está hablando"
+                        cancelInactivityTimeout()
                     case .thinking:
                         statusText = "Pensando…"
+                        cancelInactivityTimeout()
                     }
                 }
             }
@@ -438,6 +456,7 @@ final class VoiceAgentManager: ObservableObject {
     }
 
     private func show(error: Error) {
+        cancelInactivityTimeout()
         errorMessage = error.localizedDescription
         isConnecting = false
         isConnected = false
@@ -445,11 +464,42 @@ final class VoiceAgentManager: ObservableObject {
     }
 
     private func resetConnectionState() {
+        cancelInactivityTimeout()
         isConnecting = false
         isConnected = false
         isMuted = true
         isAgentSpeaking = false
         statusText = "Asistente desconectado"
+    }
+
+    private func registerVoiceActivity() {
+        guard isConnected else { return }
+        scheduleInactivityTimeout()
+    }
+
+    private func scheduleInactivityTimeout() {
+        cancelInactivityTimeout()
+
+        guard isConnected, !isAgentSpeaking else { return }
+
+        inactivityTask = Task { @MainActor [weak self] in
+            do {
+                try await Task.sleep(for: Self.inactivityTimeout)
+            } catch {
+                return
+            }
+
+            guard let self, isConnected else { return }
+
+            inactivityTask = nil
+            await endConversation()
+            statusText = "Sesión cerrada por inactividad"
+        }
+    }
+
+    private func cancelInactivityTimeout() {
+        inactivityTask?.cancel()
+        inactivityTask = nil
     }
 }
 
