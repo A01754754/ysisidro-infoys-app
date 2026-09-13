@@ -4,5 +4,9 @@
 <dict>
 	<key>MBXAccessToken</key>
 	<string>$(MBX_ACCESS_TOKEN)</string>
+	<key>ELEVENLABS_AGENT_ID</key>
+	<string>$(ELEVENLABS_AGENT_ID)</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Usamos el micrófono para hablar con el asistente de voz del repartidor.</string>
 </dict>
 </plist>

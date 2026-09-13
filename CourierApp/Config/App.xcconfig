@@ -1,3 +1,4 @@
 // Shared build settings. Keep credentials in the ignored Secrets.xcconfig file.
 MBX_ACCESS_TOKEN =
+ELEVENLABS_AGENT_ID =
 #include? "Secrets.xcconfig"

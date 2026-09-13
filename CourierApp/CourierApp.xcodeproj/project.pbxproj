@@ -8,12 +8,13 @@
 
 /* Begin PBXBuildFile section */
 		F54EF6623055B7D400E348C4 /* MapboxMaps in Frameworks */ = {isa = PBXBuildFile; productRef = F54EF6613055B7D400E348C4 /* MapboxMaps */; };
+		F5F6EB5930562A37000D1D15 /* ElevenLabs in Frameworks */ = {isa = PBXBuildFile; productRef = F5F6EB5830562A37000D1D15 /* ElevenLabs */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		F54EF6523055B68000E348C4 /* CorierApp.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = CorierApp.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		F54EF66A3055BCF500E348C4 /* App.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = App.xcconfig; sourceTree = "<group>"; };
 		F54EF66B3055BCF500E348C4 /* Secrets.example.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Secrets.example.xcconfig; sourceTree = "<group>"; };
-		F54EF6523055B68000E348C4 /* CorierApp.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = CorierApp.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -43,6 +44,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				F54EF6623055B7D400E348C4 /* MapboxMaps in Frameworks */,
+				F5F6EB5930562A37000D1D15 /* ElevenLabs in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -58,6 +60,14 @@
 			);
 			sourceTree = "<group>";
 		};
+		F54EF6533055B68000E348C4 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				F54EF6523055B68000E348C4 /* CorierApp.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
 		F54EF66C3055BCF500E348C4 /* Config */ = {
 			isa = PBXGroup;
 			children = (
@@ -65,14 +75,6 @@
 				F54EF66B3055BCF500E348C4 /* Secrets.example.xcconfig */,
 			);
 			path = Config;
-			sourceTree = "<group>";
-		};
-		F54EF6533055B68000E348C4 /* Products */ = {
-			isa = PBXGroup;
-			children = (
-				F54EF6523055B68000E348C4 /* CorierApp.app */,
-			);
-			name = Products;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -96,6 +98,7 @@
 			name = CorierApp;
 			packageProductDependencies = (
 				F54EF6613055B7D400E348C4 /* MapboxMaps */,
+				F5F6EB5830562A37000D1D15 /* ElevenLabs */,
 			);
 			productName = CorierApp;
 			productReference = F54EF6523055B68000E348C4 /* CorierApp.app */;
@@ -127,6 +130,7 @@
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
 				F54EF6603055B7D400E348C4 /* XCRemoteSwiftPackageReference "mapbox-maps-ios" */,
+				F5F6EB5730562A37000D1D15 /* XCRemoteSwiftPackageReference "elevenlabs-swift-sdk" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = F54EF6533055B68000E348C4 /* Products */;
@@ -217,6 +221,7 @@
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
 				SDKROOT = iphoneos;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 			};
@@ -273,6 +278,7 @@
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				SDKROOT = iphoneos;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_COMPILATION_MODE = wholemodule;
 				VALIDATE_PRODUCT = YES;
 			};
@@ -376,6 +382,14 @@
 				minimumVersion = 11.30.1;
 			};
 		};
+		F5F6EB5730562A37000D1D15 /* XCRemoteSwiftPackageReference "elevenlabs-swift-sdk" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/elevenlabs/elevenlabs-swift-sdk.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 3.3.0;
+			};
+		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -383,6 +397,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = F54EF6603055B7D400E348C4 /* XCRemoteSwiftPackageReference "mapbox-maps-ios" */;
 			productName = MapboxMaps;
+		};
+		F5F6EB5830562A37000D1D15 /* ElevenLabs */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = F5F6EB5730562A37000D1D15 /* XCRemoteSwiftPackageReference "elevenlabs-swift-sdk" */;
+			productName = ElevenLabs;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

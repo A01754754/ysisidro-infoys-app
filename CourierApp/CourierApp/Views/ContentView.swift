@@ -6,6 +6,9 @@ struct ContentView: View {
     @StateObject private var viewModel =
         CourierViewModel()
 
+    @StateObject private var voiceAgentManager =
+        VoiceAgentManager()
+
     @State private var viewport: Viewport =
         .camera(
             center: CLLocationCoordinate2D(
@@ -29,10 +32,16 @@ struct ContentView: View {
             }
 
             cameraFollowButton
+            voiceControls
             offerOverlay
         }
         .task {
             await viewModel.startSimulation()
+        }
+        .onDisappear {
+            Task {
+                await voiceAgentManager.endConversation()
+            }
         }
     }
 
@@ -91,7 +100,7 @@ struct ContentView: View {
                 .frame(width: 38, height: 38)
 
             Image(systemName: "motorcycle")
-                .foregroundStyle(.white)
+                .foregroundStyle(.black)
                 .font(.system(size: 19))
         }
         .overlay {
@@ -324,6 +333,37 @@ struct ContentView: View {
             alignment: .center
         )
         .padding(.trailing, 16)
+    }
+
+    // MARK: - Asistente de voz
+
+    private var voiceControls: some View {
+        VoiceAgentButton(
+            manager: voiceAgentManager,
+            onToggleConversation: {
+                Task {
+                    await voiceAgentManager
+                        .toggleConversation(
+                            courierViewModel: viewModel
+                        )
+                }
+            },
+            onToggleMute: {
+                Task {
+                    await voiceAgentManager.toggleMute()
+                }
+            }
+        )
+        .frame(
+            maxWidth: .infinity,
+            maxHeight: .infinity,
+            alignment: .bottomTrailing
+        )
+        .padding(.trailing, 16)
+        .padding(
+            .bottom,
+            viewModel.hasActiveOrder ? 210 : 24
+        )
     }
 
     // MARK: - Pedido activo

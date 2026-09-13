@@ -1,0 +1,56 @@
+import Foundation
+
+struct CourierVoiceState: Encodable, Sendable {
+    let lastEvent: String
+    let streamStatus: String
+    let isPaused: Bool
+    let playbackSpeed: Double
+
+    let courierLatitude: Double?
+    let courierLongitude: Double?
+    let activeRouteId: String?
+
+    let activeOrderId: String?
+    let pickupName: String?
+    let dropoffName: String?
+    let orderPayoutMxn: Double?
+
+    let offeredOrderId: String?
+    let agentDecision: String?
+    let agentExplanation: String?
+    let agentConfidence: Double?
+
+    let netEarningsMxn: Double
+    let remainingMinutes: Int
+    let completedDeliveries: Int
+
+    let isRaining: Bool
+    let surgeMultiplier: Double?
+    let closedRoadId: String?
+    let arrivalMessage: String?
+
+    enum CodingKeys: String, CodingKey {
+        case lastEvent = "last_event"
+        case streamStatus = "stream_status"
+        case isPaused = "is_paused"
+        case playbackSpeed = "playback_speed"
+        case courierLatitude = "courier_latitude"
+        case courierLongitude = "courier_longitude"
+        case activeRouteId = "active_route_id"
+        case activeOrderId = "active_order_id"
+        case pickupName = "pickup_name"
+        case dropoffName = "dropoff_name"
+        case orderPayoutMxn = "order_payout_mxn"
+        case offeredOrderId = "offered_order_id"
+        case agentDecision = "agent_decision"
+        case agentExplanation = "agent_explanation"
+        case agentConfidence = "agent_confidence"
+        case netEarningsMxn = "net_earnings_mxn"
+        case remainingMinutes = "remaining_minutes"
+        case completedDeliveries = "completed_deliveries"
+        case isRaining = "is_raining"
+        case surgeMultiplier = "surge_multiplier"
+        case closedRoadId = "closed_road_id"
+        case arrivalMessage = "arrival_message"
+    }
+}

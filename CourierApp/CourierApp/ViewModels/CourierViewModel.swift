@@ -76,12 +76,12 @@ final class CourierViewModel: ObservableObject {
     private var sentArrivalActionIds: Set<String> = []
 
     init(
-        transport: any EventTransport = MockTransport(),
-        dev4GatewayClient: any Dev4GatewayClient =
-            MockDev4GatewayClient()
+        transport: (any EventTransport)? = nil,
+        dev4GatewayClient: (any Dev4GatewayClient)? = nil
     ) {
-        self.transport = transport
-        self.dev4GatewayClient = dev4GatewayClient
+        self.transport = transport ?? MockTransport()
+        self.dev4GatewayClient =
+            dev4GatewayClient ?? MockDev4GatewayClient()
     }
 
     var hasRoute: Bool {
@@ -110,6 +110,14 @@ final class CourierViewModel: ObservableObject {
         isPaused.toggle()
     }
 
+    func pause() {
+        isPaused = true
+    }
+
+    func resume() {
+        isPaused = false
+    }
+
     func setPlaybackSpeed(_ speed: Double) {
         guard [1.0, 5.0, 20.0].contains(speed) else {
             return
@@ -123,6 +131,37 @@ final class CourierViewModel: ObservableObject {
         agentDecision = nil
         agentExplanation = nil
         agentConfidence = nil
+    }
+
+    func makeVoiceState() -> CourierVoiceState {
+        CourierVoiceState(
+            lastEvent: lastEventText,
+            streamStatus: streamStatusText,
+            isPaused: isPaused,
+            playbackSpeed: playbackSpeed,
+            courierLatitude: courierCoordinate?.latitude,
+            courierLongitude: courierCoordinate?.longitude,
+            activeRouteId: activeRouteId,
+            activeOrderId:
+                hasActiveOrder ? activeOrderId : nil,
+            pickupName:
+                hasActiveOrder ? pickupName : nil,
+            dropoffName:
+                hasActiveOrder ? dropoffName : nil,
+            orderPayoutMxn:
+                hasActiveOrder ? orderPayout : nil,
+            offeredOrderId: offeredOrderId,
+            agentDecision: agentDecision,
+            agentExplanation: agentExplanation,
+            agentConfidence: agentConfidence,
+            netEarningsMxn: netEarnings,
+            remainingMinutes: remainingMinutes,
+            completedDeliveries: completedDeliveries,
+            isRaining: isRaining,
+            surgeMultiplier: surgeMultiplier,
+            closedRoadId: closedRoadId,
+            arrivalMessage: arrivalMessage
+        )
     }
     
     func startSimulation() async {
