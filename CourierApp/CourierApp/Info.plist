@@ -3,11 +3,11 @@
 <plist version="1.0">
 <dict>
 	<key>MBXAccessToken</key>
-	<string>$(MBX_ACCESS_TOKEN)</string>
-	<key>DEV2_BASE_URL</key>
-	<string>$(DEV2_BASE_URL)</string>
+	<string>pk.eyJ1IjoibWF4aG1yIiwiYSI6ImNtdHlsejhhbDBobjUyeHBtMWtmNGp4bXkifQ.su1pYTPS5yCnqVeoFMLKyQ</string>
+	<key>DEV2_STATE_URL</key>
+	<string>$(DEV2_STATE_URL)</string>
 	<key>ELEVENLABS_AGENT_ID</key>
-	<string>$(ELEVENLABS_AGENT_ID)</string>
+	<string>agent_0401m2bvdym1f0ds9feb2vd1h6fk</string>
 	<key>NSAppTransportSecurity</key>
 	<dict>
 		<key>NSAllowsLocalNetworking</key>
