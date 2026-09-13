@@ -1,0 +1,36 @@
+# macOS
+.DS_Store
+
+# Xcode
+DerivedData/
+build/
+*.xcuserstate
+xcuserdata/
+*.moved-aside
+*.xccheckout
+*.xcscmblueprint
+
+# Swift Package Manager
+.build/
+.swiftpm/
+
+# Playgrounds
+timeline.xctimeline
+playground.xcworkspace/
+
+# CocoaPods / Carthage artifacts
+Pods/
+Carthage/Build/
+
+# Logs and local environment
+*.log
+.env
+.env.*
+
+# Local Xcode secrets
+CourierApp/Config/Secrets.xcconfig
+
+# Archives and generated binaries
+*.ipa
+*.dSYM.zip
+*.dSYM
