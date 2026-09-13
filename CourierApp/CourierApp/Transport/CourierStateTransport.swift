@@ -86,7 +86,9 @@ struct Dev2SSECourierStateTransport: CourierStateTransport {
 
     func fetchSnapshot() async throws -> Dev2SimulationSnapshot {
         let endpoint = baseURL.appendingPathComponent("simulation/state")
-        let (data, response) = try await session.data(from: endpoint)
+        var request = URLRequest(url: endpoint, cachePolicy: .reloadIgnoringLocalCacheData)
+        request.timeoutInterval = 10
+        let (data, response) = try await session.data(for: request)
         try validate(response)
         return try JSONDecoder().decode(Dev2SimulationSnapshot.self, from: data)
     }
@@ -104,6 +106,20 @@ struct Dev2SSECourierStateTransport: CourierStateTransport {
 
     func eventStream() -> AsyncThrowingStream<Dev2StreamMessage, Error> {
         AsyncThrowingStream(bufferingPolicy: .bufferingNewest(16)) { continuation in
+            // Poll independently so a connected but silent SSE stream cannot freeze the UI.
+            let pollingTask = Task {
+                while !Task.isCancelled {
+                    do {
+                        continuation.yield(.snapshot(try await fetchSnapshot()))
+                    } catch {
+                        if Task.isCancelled { break }
+                        continuation.yield(.reconnecting(error.localizedDescription))
+                    }
+                    do {
+                        try await Task.sleep(for: .seconds(1))
+                    } catch { break }
+                }
+            }
             let task = Task {
                 var retryDelay = 1.0
 
@@ -111,41 +127,23 @@ struct Dev2SSECourierStateTransport: CourierStateTransport {
                     do {
                         var request = URLRequest(url: baseURL.appendingPathComponent("events"))
                         request.setValue("text/event-stream", forHTTPHeaderField: "Accept")
-        request.timeoutInterval = 600
+                        request.timeoutInterval = 600
 
                         let (bytes, response) = try await session.bytes(for: request)
                         try validate(response)
                         continuation.yield(.connected)
                         retryDelay = 1
 
-                        var eventName = "message"
-                        var dataLines: [String] = []
-
-                        for try await line in bytes.lines {
+                        var parser = SSEFrameParser()
+                        // AsyncBytes.lines omits empty lines, which SSE uses as frame boundaries.
+                        for try await byte in bytes {
                             try Task.checkCancellation()
-
-                            if line.isEmpty {
-                                if let message = try decodeEvent(
-                                    name: eventName,
-                                    data: dataLines.joined(separator: "\n")
-                                ) {
-                                    continuation.yield(message)
-                                }
-                                eventName = "message"
-                                dataLines.removeAll(keepingCapacity: true)
-                            } else if line.hasPrefix("event:") {
-                                eventName = fieldValue(line, prefix: "event:")
-                            } else if line.hasPrefix("data:") {
-                                dataLines.append(fieldValue(line, prefix: "data:"))
+                            if let frame = parser.consume(byte),
+                               let message = try decodeEvent(name: frame.name, data: frame.data) {
+                                continuation.yield(message)
                             }
                         }
 
-                        if let message = try decodeEvent(
-                            name: eventName,
-                            data: dataLines.joined(separator: "\n")
-                        ) {
-                            continuation.yield(message)
-                        }
                         throw CourierStateTransportError.eventStreamEnded
                     } catch is CancellationError {
                         break
@@ -163,7 +161,10 @@ struct Dev2SSECourierStateTransport: CourierStateTransport {
                 continuation.finish()
             }
 
-            continuation.onTermination = { _ in task.cancel() }
+            continuation.onTermination = { _ in
+                task.cancel()
+                pollingTask.cancel()
+            }
         }
     }
 
@@ -174,12 +175,6 @@ struct Dev2SSECourierStateTransport: CourierStateTransport {
         guard (200...299).contains(httpResponse.statusCode) else {
             throw CourierStateTransportError.httpStatus(httpResponse.statusCode)
         }
-    }
-
-    private func fieldValue(_ line: String, prefix: String) -> String {
-        var value = String(line.dropFirst(prefix.count))
-        if value.first == " " { value.removeFirst() }
-        return value
     }
 
     func decodeEvent(name: String, data: String) throws -> Dev2StreamMessage? {
@@ -342,5 +337,45 @@ private struct MessageEventData: Decodable {
             ?? container.decodeIfPresent(String.self, forKey: .waitingReason)
         message = try container.decodeIfPresent(String.self, forKey: .message)
         error = try container.decodeIfPresent(String.self, forKey: .error)
+    }
+}
+
+// Preserves SSE's empty-line delimiter and accepts LF, CRLF, and CR line endings.
+struct SSEFrameParser {
+    private var line: [UInt8] = []
+    private var previousWasCR = false
+    private var eventName = "message"
+    private var dataLines: [String] = []
+
+    mutating func consume(_ byte: UInt8) -> (name: String, data: String)? {
+        if byte == 10, previousWasCR {
+            previousWasCR = false
+            return nil
+        }
+        previousWasCR = byte == 13
+        guard byte == 10 || byte == 13 else {
+            line.append(byte)
+            return nil
+        }
+        let value = String(decoding: line, as: UTF8.self)
+        line.removeAll(keepingCapacity: true)
+        if value.isEmpty {
+            defer {
+                eventName = "message"
+                dataLines.removeAll(keepingCapacity: true)
+            }
+            guard !dataLines.isEmpty else { return nil }
+            return (eventName, dataLines.joined(separator: "\n"))
+        }
+        guard !value.hasPrefix(":") else { return nil }
+        let parts = value.split(separator: ":", maxSplits: 1, omittingEmptySubsequences: false)
+        var fieldValue = parts.count > 1 ? String(parts[1]) : ""
+        if fieldValue.first == " " { fieldValue.removeFirst() }
+        switch parts[0] {
+        case "event": eventName = fieldValue.isEmpty ? "message" : fieldValue
+        case "data": dataLines.append(fieldValue)
+        default: break
+        }
+        return nil
     }
 }
